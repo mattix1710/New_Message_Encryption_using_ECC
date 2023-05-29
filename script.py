@@ -1,3 +1,5 @@
+from tinyec import registry
+
 class Point:
     def __init__(self, x, y, curve = None) -> None:
         self.curve = curve
@@ -10,63 +12,6 @@ class Point:
         else:
             self.on_curve = curve.on_curve(x, y)
         pass
-    
-    def __modular_inverse(self, base, modulus):
-        # print("MODULAR_BASE:", base)
-        a = base
-        b = modulus
-        x, y = 1, 0
-        while b != 0:
-            q = a // b
-            a, b = b, a % b
-            x, y = y, x - q * y
-            
-        if a == 1:
-            # Ensure the modular inverse exists
-            return x % modulus
-        else:
-            # Modular inverse does not exist
-            return None
-    
-    def __sum_pt(self, point_1, point_2 = None):
-        print("CURR_SUM_PT: {} - {}".format(point_1, point_2))
-        
-        if type(point_2) == type(None):
-            point_2 = Point(None, None, self.curve)
-        
-        # POINT DOUBLING
-        if point_2 == None or point_1 == point_2:
-            # if given point is a "point at infinity"
-            if point_1 == None:
-                return Point(None, None, self.curve)
-            # if given points coordinate y == 0
-            if point_1.y == 0:
-                return Point(None, None, self.curve)
-                        
-            lambda_f = ((3*point_1.x**2 + self.curve.a) * self.__modular_inverse(2*point_1.y, self.curve.p)) % self.curve.p
-            
-            x_3 = (lambda_f**2 - 2*point_1.x) % self.curve.p
-            y_3 = (lambda_f * (point_1.x - x_3) - point_1.y) % self.curve.p
-            print("SUM pts {} + {} = {}".format(point_1, point_2, (x_3, y_3)))
-            return Point(x_3, y_3, self.curve)
-        
-        # POINT ADDITION
-        # if one of the points is a "point at infinity"
-        if point_1 == None:
-            return point_2
-        elif point_2 == None:
-            return point_1
-        if point_1.x == point_2.x and point_1.y != point_2.y:
-            return Point(None, None, self.curve)
-        
-        lambda_f = ((point_2.y - point_1.y) * self.__modular_inverse(point_2.x - point_1.x, self.curve.p)) % self.curve.p
-        
-        x_3 = (lambda_f**2 - point_1.x - point_2.x) % self.curve.p
-        y_3 = (lambda_f * (point_1.x - x_3) - point_1.y) % self.curve.p
-        
-        print("SUM pts {} + {} = {}".format(point_1, point_2, (x_3, y_3)))
-        
-        return Point(x_3, y_3, self.curve)
     
     def __add_pt(self, point_1, point_2):
         # INFO: print for DEBUG purposes ONLY!
@@ -86,28 +31,7 @@ class Point:
         y_3 = (lambda_f * (point_1.x - x_3) - point_1.y) % self.curve.p
         
         return Point(x_3, y_3, self.curve)
-        
-        
-        #-------------------
-        
-        if point_1 == None:
-            return point_2
-        if point_2 == None:
-            return point_1
-        
-        if point_1.x - point_2.x == 0:
-            return Point(None, None, self.curve)
-        
-        print("BASE: {}".format(point_1.x - point_2.x))
-        print("POINTS: {} {}".format(point_1, point_2))
-        lambda_f = ((point_2.y - point_1.y) * pow(point_2.x - point_1.x, -1, self.curve.p)) % self.curve.p
-        
-        x_3 = (lambda_f**2 - point_1.x - point_2.x) % self.curve.p
-        y_3 = (lambda_f * (point_1.x - x_3) - point_1.y) % self.curve.p
-        
-        return Point(x_3, y_3, self.curve)
-        
-    # INFO: looks good
+
     def __double_pt(self, point):
         # INFO: print for DEBUG purposes ONLY!
         # print("DOUBLE pt {}".format(point))
@@ -122,18 +46,8 @@ class Point:
         y_3 = (lambda_f * (point.x - x_3) - point.y) % self.curve.p
         
         return Point(x_3, y_3, self.curve)
-        
-        #-------------------------
-        lambda_f = ((3*pow(point.x, 2) + self.curve.a) * pow(2 * point.y, -1, self.curve.p)) % self.curve.p
-        
-        x_3 = (lambda_f**2 - 2*point.x) % self.curve.p
-        y_3 = (lambda_f * (point.x - x_3) - point.y) % self.curve.p
-        
-        return Point(x_3, y_3, self.curve)
     
     def __mul_pt(self, point, multiplier):
-        # print(multiplier, point)
-        
         if multiplier == 0:
             return Point(None, None, self.curve)
         elif multiplier == 1:
@@ -142,17 +56,6 @@ class Point:
             return self.__add_pt(point, self.__mul_pt(point, multiplier-1))
         else:
             return self.__mul_pt(self.__double_pt(point), multiplier//2)
-        
-        
-        # returns a point in infinity
-        if multiplier == 0:
-            return Point(None, None)
-        elif multiplier == 1:
-            return point
-        elif multiplier % 2 == 1:
-            return self.__sum_pt(point, self.__mul_pt(point, multiplier-1))
-        else:
-            return self.__mul_pt(self.__sum_pt(point), multiplier//2)
 
     def __mul__(self, multiplier):        
         return self.__mul_pt(self, multiplier)
@@ -219,9 +122,12 @@ class Curve:
         self.G = Point(x, y, self)
         print("Generator set properly to point G({}, {})".format(x, y))
         
-curve = Curve(7, 3, 13)
-curve.set_generator(3, 5)
+# ------- MAIN --------
+
+curr = registry.get_curve('secp192r1')        
+
+curve = Curve(curr.a, curr.b, curr.field.p)
+curve.set_generator(curr.g.x, curr.g.y)
 print("-- CYCLIC GROUP --")
-for it in range(27,28):
-    # print("-- {} --".format(it))
+for it in range(10):
     print(it, curve.G*it)
