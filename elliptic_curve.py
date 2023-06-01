@@ -1,5 +1,3 @@
-from tinyec import registry
-
 class Point:
     def __init__(self, x, y, curve = None) -> None:
         self.curve = curve
@@ -121,13 +119,3 @@ class Curve:
     def set_generator(self, x, y):
         self.G = Point(x, y, self)
         print("Generator set properly to point G({}, {})".format(x, y))
-        
-# ------- MAIN --------
-
-curr = registry.get_curve('secp192r1')        
-
-curve = Curve(curr.a, curr.b, curr.field.p)
-curve.set_generator(curr.g.x, curr.g.y)
-print("-- CYCLIC GROUP --")
-for it in range(10):
-    print(it, curve.G*it)
